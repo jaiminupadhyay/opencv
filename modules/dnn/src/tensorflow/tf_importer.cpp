@@ -711,6 +711,8 @@ void TFImporter::populateNet(Net dstNet)
 
     std::map<String, int> layer_id;
 
+    std::vector<String> netInputs;
+
     for (int li = 0; li < layersSize; li++)
     {
         tensorflow::NodeDef layer = net.node(li);
@@ -1059,6 +1061,8 @@ void TFImporter::populateNet(Net dstNet)
                 Pin inp = parsePin(layer.input(ii));
                 if (layer_id.find(inp.name) == layer_id.end())
                     CV_Error(Error::StsError, "Input layer not found: " + inp.name);
+                if(layer_id.at(inp.name) == 0)
+                    inp.blobIndex = (int)(std::find(netInputs.begin(), netInputs.end(), inp.name)-netInputs.begin());
                 dstNet.connect(layer_id.at(inp.name), inp.blobIndex, id, ii - from);
             }
         }
@@ -1091,10 +1095,8 @@ void TFImporter::populateNet(Net dstNet)
         }
         else if (type == "Placeholder")
         {
-            std::vector<String> netInputs(1);
-            netInputs[0] = name;
+            netInputs.push_back(name);
             layer_id[name] = 0;
-            dstNet.setInputsNames(netInputs);
         }
         else if (type == "Split") {
             // TODO: determining axis index remapping by input dimensions order of input blob
@@ -1559,6 +1561,7 @@ void TFImporter::populateNet(Net dstNet)
             CV_Error_(Error::StsError, ("Unknown layer type %s in op %s", type.c_str(), name.c_str()));
         }
     }
+    dstNet.setInputsNames(netInputs);
 }
 
 } // namespace
