@@ -11,6 +11,7 @@ Test for Tensorflow models loading
 
 #include "test_precomp.hpp"
 #include "npy_blob.hpp"
+#include <opencv2/dnn/shape_utils.hpp>
 #include <opencv2/core/ocl.hpp>
 #include <opencv2/ts/ocl_test.hpp>
 
@@ -351,6 +352,35 @@ TEST(Test_TensorFlow, memory_read)
     runTensorFlowNet("batch_norm", DNN_TARGET_CPU, false, l1, lInf, true);
     runTensorFlowNet("fused_batch_norm", DNN_TARGET_CPU, false, l1, lInf, true);
     runTensorFlowNet("batch_norm_text", DNN_TARGET_CPU, true, l1, lInf, true);
+}
+
+TEST(Test_TensorFlow, multiple_inputs)
+{
+    std::string netPath = findDataFile("dnn/tensorflow/multiple_inputs.pb", false);
+    std::string netConfig = findDataFile("dnn/tensorflow/multiple_inputs.pbtxt", false);
+
+    Net net = readNetFromTensorflow(netPath, netConfig);
+
+    Mat first_image(10, 11, CV_32FC3);
+    Mat second_image(10, 11, CV_32FC3);
+    randu(first_image, -1, 1);
+    randu(second_image, -1, 1);
+
+    first_image = blobFromImage(first_image);
+    second_image = blobFromImage(second_image);
+
+    Mat first_image_blue_green = slice(first_image, Range::all(), Range(0, 2), Range::all(), Range::all());
+    Mat first_image_red = slice(first_image, Range::all(), Range(2, 3), Range::all(), Range::all());
+    Mat second_image_blue_green = slice(second_image, Range::all(), Range(0, 2), Range::all(), Range::all());
+    Mat second_image_red = slice(second_image, Range::all(), Range(2, 3), Range::all(), Range::all());
+
+    net.setInput(first_image_blue_green, "first_image_blue_green");
+    net.setInput(first_image_red, "first_image_red");
+    net.setInput(second_image_blue_green, "second_image_blue_green");
+    net.setInput(second_image_red, "second_image_red");
+    Mat output = net.forward();
+
+    normAssert(output, first_image + second_image);
 }
 
 }
